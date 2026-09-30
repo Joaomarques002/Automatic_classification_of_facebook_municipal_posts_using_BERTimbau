@@ -2,3 +2,9 @@ playwright
 pandas
 tqdm
 python-dotenv
+torch
+transformers
+scikit-learn
+matplotlib
+seaborn
+accelerate
