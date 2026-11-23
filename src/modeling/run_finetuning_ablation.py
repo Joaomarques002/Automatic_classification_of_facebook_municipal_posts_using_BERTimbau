@@ -28,7 +28,7 @@ def run_train(modeling_dir: Path, mode_name: str, freeze_encoder: bool, common_a
     cmd = [
         sys.executable,
         "train_bertimbau.py",
-        f"file=../../{common_args['file']}", # Recua para encontrar a pasta data/
+        f"file=../../{common_args['file']}", # Caminho relativo para os datasets na pasta data/
         f"label={common_args['label']}",
         f"epochs={common_args['epochs']}",
         f"bt={common_args['bt']}",
@@ -119,7 +119,7 @@ def main():
     results_dir.mkdir(parents=True, exist_ok=True)
 
     common_args = {
-        "file": kv.get("file", "data/dataset_labels_normalizado.csv"),
+        "file": kv.get("file", "data/processed/dataset_labels_normalizado.csv"),
         "label": kv.get("label", "new_sector_norm"),
         "epochs": kv.get("epochs", "6"),
         "bt": kv.get("bt", "8"),

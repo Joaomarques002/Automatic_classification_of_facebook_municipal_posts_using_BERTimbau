@@ -1,21 +1,46 @@
-# Ambiente Virtual
+# Virtual environments
 .venv/
 venv/
-ENV/
+env/
 
-# Cache do Python
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Base de dados local e logs
-*.db
-*.sqlite3
-*.log
-
-# Ficheiros do SO e IDE
-.DS_Store
+# IDEs
 .vscode/
 .idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
 .env
+facebook_session.json
+
+# Logs
+*.log
+
+# Databases
+*.db
+*.sqlite3
+
+# Trained models
+bertimbau_out*/
+bertimbau_ablation*/
+checkpoint-*/
+
+# PyTorch / Transformers
+*.pt
+*.bin
+*.safetensors
+
+# Generated results
+bootstrap_results/
+
+# Temporary files
+*.tmp
+*.bak

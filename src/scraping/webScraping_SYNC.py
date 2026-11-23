@@ -10,8 +10,8 @@ from tqdm import tqdm
 # CONFIGURAÇÕES PRINCIPAIS
 # -------------------------------------------------------------------------
 STORAGE_STATE_FILE = "facebook_session.json"
-INPUT_FILE = "data/DATA_socialmedia_localgov_pt.csv"  # Aponta para a nova pasta data/
-OUTPUT_FILE = "data/dataset_com_texto_extraido01.csv"
+INPUT_FILE = "data/raw/DATA_socialmedia_localgov_pt.csv"  # Aponta para a nova pasta data/
+OUTPUT_FILE = "data/processed/dataset_com_texto_extraido01.csv"
 LINK_COLUMN = "link"
 TEXT_COLUMN = "post_text"
 ROW_ID_COLUMN = "_row_id"

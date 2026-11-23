@@ -33,7 +33,7 @@ def load_test_data(data_path, text_col, label_col):
 def main():
     parser = argparse.ArgumentParser(description="Exportar previsões do conjunto de teste")
     parser.add_argument("--model", required=True, help="Caminho para a diretoria do modelo treinado")
-    parser.add_argument("--data", default="data/dataset_labels_normalizado.csv")
+    parser.add_argument("--data", default="data/processed/dataset_labels_normalizado.csv")
     parser.add_argument("--text", default="post_text")
     parser.add_argument("--label", default="new_sector_norm")
     parser.add_argument("--output", default="results/bertimbau_test_predictions.csv")
@@ -67,7 +67,10 @@ def main():
         "y_pred": [id2label[int(prediction)] for prediction in predictions],
     })
     
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    
     output.to_csv(args.output, index=False)
     print("\n✅ Concluído com sucesso:")
     print(json.dumps({"n_test": len(output), "output": str(Path(args.output).resolve())}, indent=2))

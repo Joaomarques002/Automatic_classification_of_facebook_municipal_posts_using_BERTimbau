@@ -13,7 +13,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 # Definição profissional de caminhos relativos ao projeto
 MODELING_DIR = Path(__file__).resolve().parent
 ROOT_DIR = MODELING_DIR.parent.parent
-BASE_DIR = ROOT_DIR / "data"
+BASE_DIR = ROOT_DIR / "data" / "processed"
 RESULTS_DIR = ROOT_DIR / "results" / "bootstrap_results"
 
 MODEL_NAME = "neuralmind/bert-base-portuguese-cased"

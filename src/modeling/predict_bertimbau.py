@@ -42,7 +42,7 @@ def resolve_model_dir(cli_model_dir: str = None):
 
     # Tenta ler o ponteiro gerado pelo script de treino na pasta results/
     if os.path.exists(LATEST_MODEL_FILE):
-        with open(LATEST_MODEL_FILE, "w" if not os.path.exists(LATEST_MODEL_FILE) else "r", encoding="utf-8") as f:
+        with open(LATEST_MODEL_FILE, "r", encoding="utf-8") as f:
             candidate = f.read().strip().lstrip("\ufeff")
         if candidate and os.path.isdir(candidate):
             return candidate
@@ -152,7 +152,10 @@ def main():
     df[LABEL_COLUMN] = preds
     
     # Garantir que a pasta de destino existe
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    output_dir = os.path.dirname(out_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"✨ Concluído! Resultados guardados com sucesso em: {out_path}")
 

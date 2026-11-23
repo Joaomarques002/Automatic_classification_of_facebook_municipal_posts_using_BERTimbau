@@ -2,10 +2,34 @@ import pandas as pd
 import unicodedata
 from pathlib import Path
 
-DATASET = Path("dataset_com_texto_extraido01.csv")
-MAPPING_CSV = Path("label_mapping.csv")
-OUTPUT = Path("dataset_labels_normalizado.csv")
-COUNTS_OUT = Path("label_counts_after_normalization.csv")
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+DATASET = (
+    ROOT_DIR
+    / "data"
+    / "processed"
+    / "dataset_com_texto_extraido01.csv"
+)
+
+MAPPING_CSV = (
+    ROOT_DIR
+    / "data"
+    / "raw"
+    / "label_mapping.csv"
+)
+
+OUTPUT = (
+    ROOT_DIR
+    / "data"
+    / "processed"
+    / "dataset_labels_normalizado.csv"
+)
+
+COUNTS_OUT = (
+    ROOT_DIR
+    / "results"
+    / "label_counts_after_normalization.csv"
+)
 
 CANONICAL_SET = {
     "Cultura",

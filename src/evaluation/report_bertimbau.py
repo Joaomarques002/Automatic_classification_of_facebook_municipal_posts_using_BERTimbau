@@ -1,35 +1,43 @@
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
-LATEST_MODEL_FILE = "bertimbau_latest.txt"
-DEFAULT_MODEL_DIR = "bertimbau_out"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+LATEST_MODEL_FILE = ROOT_DIR / "results" / "bertimbau_latest.txt"
+
+DEFAULT_MODEL_DIR = ROOT_DIR / "results" / "bertimbau_out"
+
 
 
 def resolve_model_dir(cli_model_dir: Optional[str] = None) -> str:
+
     if cli_model_dir:
         return cli_model_dir
 
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    latest_path = os.path.join(base_path, LATEST_MODEL_FILE)
-    if os.path.exists(latest_path):
-        with open(latest_path, "r", encoding="utf-8") as f:
-            candidate = f.read().strip().lstrip("\ufeff")
-        if candidate:
-            if not os.path.isabs(candidate):
-                candidate = os.path.join(base_path, candidate)
-            if os.path.isdir(candidate):
-                return candidate
+    if LATEST_MODEL_FILE.exists():
 
-    fallback = os.path.join(base_path, DEFAULT_MODEL_DIR)
-    if os.path.isdir(fallback):
-        return fallback
+        with open(LATEST_MODEL_FILE, "r", encoding="utf-8") as f:
+            candidate = f.read().strip().lstrip("\ufeff")
+
+        if candidate:
+
+            candidate_path = Path(candidate)
+
+            if not candidate_path.is_absolute():
+                candidate_path = ROOT_DIR / candidate
+
+            if candidate_path.is_dir():
+                return str(candidate_path)
+
+    if DEFAULT_MODEL_DIR.is_dir():
+        return str(DEFAULT_MODEL_DIR)
 
     raise SystemExit(
-        "Erro: modelo não encontrado. Use model=CAMINHO ou execute treino para gerar "
-        + LATEST_MODEL_FILE
-        + "."
+        "Erro: modelo não encontrado. "
+        "Execute train_bertimbau.py para gerar um modelo."
     )
 
 

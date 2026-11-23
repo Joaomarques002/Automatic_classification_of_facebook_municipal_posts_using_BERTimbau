@@ -25,7 +25,7 @@ def load_data(path, text_col, label_col):
 
 def main():
     parser = argparse.ArgumentParser(description="Treino de Modelos Baseline (TF-IDF)")
-    parser.add_argument("--data", default="data/dataset_labels_normalizado.csv")
+    parser.add_argument("--data", default="data/processed/dataset_labels_normalizado.csv")
     parser.add_argument("--text", default="post_text")
     parser.add_argument("--label", default="new_sector_norm")
     parser.add_argument("--output", default="results/baseline_out")

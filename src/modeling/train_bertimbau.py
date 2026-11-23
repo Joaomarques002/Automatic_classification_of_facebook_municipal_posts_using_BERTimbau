@@ -26,7 +26,7 @@ import torch.nn as nn
 # -------------------------------------------------------------------------
 # CONFIGURAÇÕES E CAMINHOS PROFISSIONAIS
 # -------------------------------------------------------------------------
-INPUT_FILE = "data/dataset_labels_normalizado.csv"  # Aponta para a nova pasta data/
+INPUT_FILE = "data/processed/dataset_labels_normalizado.csv"  # Aponta para a nova pasta data/
 TEXT_COLUMN = "post_text"
 LABEL_COLUMN = "new_sector_norm"
 MODEL_NAME = "neuralmind/bert-base-portuguese-cased"  # BERTimbau
@@ -429,5 +429,5 @@ def main():
     print(f"Resumo atualizado em '{LATEST_INFO_FILE}'.")
 
 
-if name == "main":
+if __name__ == "__main__":
     main()

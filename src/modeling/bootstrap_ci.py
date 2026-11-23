@@ -43,7 +43,10 @@ def main():
     frame = pd.read_csv(args.predictions)
     result = calculate_bootstrap_ci(frame["y_true"], frame["y_pred"])
     
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    output_dir = os.path.dirname(args.output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        
     with open(args.output, "w", encoding="utf-8") as output:
         json.dump(result, output, indent=2)
         

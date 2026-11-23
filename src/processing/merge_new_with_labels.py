@@ -4,13 +4,44 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pandas as pd
 
-BASE_DIR = Path(__file__).resolve().parent
-TEXT_JSON = BASE_DIR / "dataset_new.json"
-LABELS_CSV = BASE_DIR / "DATA_classified_by_students_2026_update.csv"
-OUT_CSV = BASE_DIR / "dataset_new_merged_labeled.csv"
-OUT_LABELED_ONLY_CSV = BASE_DIR / "dataset_new_merged_labeled_only.csv"
-OUT_QA_JSON = BASE_DIR / "dataset_new_merge_qa.json"
-OUT_QA_TXT = BASE_DIR / "dataset_new_merge_qa.txt"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+# Inputs
+TEXT_JSON = ROOT_DIR / "data" / "raw" / "dataset_new.json"
+
+LABELS_CSV = (
+    ROOT_DIR
+    / "data"
+    / "raw"
+    / "DATA_classified_by_students_2026_update.csv"
+)
+
+# Outputs
+OUT_CSV = (
+    ROOT_DIR
+    / "data"
+    / "processed"
+    / "dataset_new_merged_labeled.csv"
+)
+
+OUT_LABELED_ONLY_CSV = (
+    ROOT_DIR
+    / "data"
+    / "processed"
+    / "dataset_new_merged_labeled_only.csv"
+)
+
+OUT_QA_JSON = (
+    ROOT_DIR
+    / "results"
+    / "dataset_new_merge_qa.json"
+)
+
+OUT_QA_TXT = (
+    ROOT_DIR
+    / "results"
+    / "dataset_new_merge_qa.txt"
+)
 
 
 TRACKING_PARAMS = {

@@ -2,12 +2,27 @@ import pandas as pd
 import re
 from collections import Counter
 
-INPUT_FILE = "dataset_com_texto_extraido01.csv"
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+
+INPUT_FILE = (
+    ROOT_DIR
+    / "data"
+    / "processed"
+    / "dataset_com_texto_extraido01.csv"
+)
+
 TEXT_COLUMN = "post_text"
 LABEL_COLUMN = "new_sector"
 MUNI_COLUMN = "municipality_name"
 CONTENT_TYPE_COLUMN = "content_type"
-REPORT_FILE = "eda_report.txt"
+
+REPORT_FILE = (
+    ROOT_DIR
+    / "results"
+    / "eda_report.txt"
+)
 
 
 def clean_text(s: str) -> str:
