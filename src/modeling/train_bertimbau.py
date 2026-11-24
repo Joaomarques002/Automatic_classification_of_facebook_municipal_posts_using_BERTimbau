@@ -26,14 +26,27 @@ import torch.nn as nn
 # -------------------------------------------------------------------------
 # CONFIGURAÇÕES E CAMINHOS PROFISSIONAIS
 # -------------------------------------------------------------------------
+# Dataset utilizado por defeito no treino
 INPUT_FILE = "data/processed/dataset_labels_normalizado.csv"  # Aponta para a nova pasta data/
+
+# Coluna com o texto da publicação
 TEXT_COLUMN = "post_text"
+
+# Coluna com a classificação correta
 LABEL_COLUMN = "new_sector_norm"
+
+
+# Modelo pré-treinado BERTimbau
 MODEL_NAME = "neuralmind/bert-base-portuguese-cased"  # BERTimbau
 
 # Centralização dos outputs na pasta results/
+# Pasta onde cada execução de treino é guardada
 OUTPUT_DIR = "results/bertimbau_out"
+
+# Apontador para o último modelo treinado
 LATEST_MODEL_FILE = "results/bertimbau_latest.txt"
+
+# Resumo com métricas do último modelo treinado
 LATEST_INFO_FILE = "results/bertimbau_latest_info.json"
 
 MAX_SAMPLES = None  # None = usar dataset completo
@@ -51,6 +64,8 @@ DEDUP_TEXTS = True
 FREEZE_ENCODER = False
 
 
+# Cria uma pasta única para cada treino
+# Exemplo: bertimbau_out_20261124_154500
 def build_versioned_output_dir(base_dir: str) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     candidate = f"{base_dir}_{timestamp}"
@@ -63,7 +78,8 @@ def build_versioned_output_dir(base_dir: str) -> str:
             return candidate_idx
         idx += 1
 
-
+# Guarda o caminho do modelo mais recente
+# para ser utilizado por scripts de inferência
 def write_latest_model_pointer(run_output_dir: str):
     os.makedirs(os.path.dirname(LATEST_MODEL_FILE), exist_ok=True)
     with open(LATEST_MODEL_FILE, "w", encoding="utf-8") as f:
@@ -91,6 +107,9 @@ def write_latest_model_info(run_output_dir: str, metrics: Dict):
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
+# Permite alternar entre:
+# - Fine-Tuning completo
+# - Encoder congelado (ablação)
 def set_encoder_trainable(model, trainable: bool):
     for p in model.base_model.parameters():
         p.requires_grad = trainable
@@ -115,7 +134,10 @@ class TextLabelDataset(Dataset):
         item["labels"] = torch.tensor(self.labels[idx])
         return item
 
-
+# Carrega o dataset e remove:
+# - textos vazios
+# - erros de extração
+# - duplicados (opcional)
 def load_subset(path: str, max_samples: int):
     df = pd.read_csv(path, encoding="utf-8")
     df = df.dropna(subset=[TEXT_COLUMN, LABEL_COLUMN]).copy()
@@ -128,7 +150,11 @@ def load_subset(path: str, max_samples: int):
         df = df.sample(n=max_samples, random_state=RANDOM_SEED)
     return df
 
-
+# Converte labels textuais para IDs numéricos
+# Exemplo:
+# Saúde -> 0
+# Cultura -> 1
+# Desporto -> 2
 def prepare_label_mapping(labels: pd.Series):
     unique = sorted(labels.unique())
     id2label = {i: l for i, l in enumerate(unique)}
@@ -160,6 +186,9 @@ def main():
     argv = sys.argv[1:]
     global MAX_SAMPLES, LABEL_COLUMN, NUM_EPOCHS, LEARNING_RATE, WEIGHT_DECAY, MAX_LENGTH, BATCH_TRAIN, BATCH_EVAL, METRIC_FOR_BEST, EARLY_STOP_PATIENCE, USE_CLASS_WEIGHTS, INPUT_FILE, OUTPUT_DIR, FREEZE_ENCODER
 
+    # Permite alterar parâmetros do treino através da linha de comandos
+    # Exemplo:
+    # epochs=10 lr=3e-5 file=dataset.csv
     for a in argv:
         if a.startswith("max="):
             try:
@@ -262,6 +291,8 @@ def main():
     valid_classes = counts[counts >= 2].index
     df = df[df[LABEL_COLUMN].astype(str).isin(valid_classes)].copy()
 
+    # Divisão estratificada para preservar
+    # a distribuição das categorias
     train_df, test_df = train_test_split(
         df,
         test_size=0.2,
@@ -269,6 +300,7 @@ def main():
         stratify=df[LABEL_COLUMN].astype(str),
     )
 
+    # Conversão dos textos para o formato esperado pelo BERTimbau
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     def tokenize_texts(texts):
@@ -281,10 +313,13 @@ def main():
     train_labels = [label2id[s] for s in train_df[LABEL_COLUMN].astype(str)]
     test_labels = [label2id[s] for s in test_df[LABEL_COLUMN].astype(str)]
 
+    # Dataset utilizado durante o treino
     train_ds = TextLabelDataset(train_enc, train_labels)
     test_ds = TextLabelDataset(test_enc, test_labels)
 
     num_labels = len(id2label)
+    # Carrega o BERTimbau pré-treinado e adapta-o
+    # para o número de categorias do projeto
     model = AutoModelForSequenceClassification.from_pretrained(
         MODEL_NAME,
         num_labels=num_labels,
@@ -322,6 +357,8 @@ def main():
         }
 
     class_weights_tensor = None
+    # Compensa categorias menos representadas
+    # durante o treino
     if USE_CLASS_WEIGHTS:
         train_counts = train_df[LABEL_COLUMN].astype(str).value_counts()
         weights = []
@@ -342,12 +379,15 @@ def main():
         num_labels=num_labels,
     )
     print("A treinar BERTimbau no subconjunto…")
+    # Início do processo de fine-tuning do modelo
     trainer.train()
     print("Avaliação…")
+    # Avaliação do modelo no conjunto de teste
     metrics = trainer.evaluate()
     print(metrics)
 
     print("Guardando modelo e tokenizer…")
+    # Guarda modelo e tokenizer treinados
     trainer.save_model(run_output_dir)
     tokenizer.save_pretrained(run_output_dir)
 
@@ -386,6 +426,9 @@ def main():
     print("Gerando relatório por classe e matriz de confusão…")
     pred_output = trainer.predict(test_ds)
     preds = np.argmax(pred_output.predictions, axis=-1)
+    
+    # Gera previsões sobre o conjunto de teste
+    # para posterior análise
     prediction_frame = pd.DataFrame(
         {
             "y_true": test_df[LABEL_COLUMN].astype(str).to_numpy(),
@@ -396,6 +439,8 @@ def main():
         os.path.join(run_output_dir, "bertimbau_predictions.csv"), index=False
     )
     target_names = [id2label[i] for i in range(len(id2label))]
+    
+    # Guardar métricas detalhadas por categoria
     report_text = classification_report(
         [label2id[s] for s in test_df[LABEL_COLUMN].astype(str)],
         preds,
@@ -409,6 +454,7 @@ def main():
     ) as rf:
         rf.write(report_text)
 
+    # Visualização dos erros de classificação
     cm = confusion_matrix(
         [label2id[s] for s in test_df[LABEL_COLUMN].astype(str)],
         preds,
@@ -423,6 +469,7 @@ def main():
     plt.savefig(os.path.join(run_output_dir, "confusion_matrix.png"))
     plt.close()
 
+    # Atualiza os apontadores para o último treino realizado
     write_latest_model_pointer(run_output_dir)
     write_latest_model_info(run_output_dir, metrics)
     print(f"Atalho atualizado em '{LATEST_MODEL_FILE}'.")

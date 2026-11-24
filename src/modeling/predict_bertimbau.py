@@ -6,14 +6,19 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 from tqdm import tqdm
 
-# Caminhos consistentes com a nova estrutura profissional
+# Localização do último modelo treinado
 DEFAULT_MODEL_DIR = "results/bertimbau_out"
+# Ficheiro que aponta para o modelo mais recente
 LATEST_MODEL_FILE = "results/bertimbau_latest.txt"
+# Coluna que contém o texto das publicações
 TEXT_COLUMN = "post_text"
+# Coluna que irá receber a previsão do modelo
 LABEL_COLUMN = "pred_label"
 BATCH_SIZE = 32  # Otimização crucial para evitar quebras de memória
 
 
+# Carrega o mapeamento entre IDs numéricos
+# e os nomes das categorias
 def load_labels(model_dir):
     path = os.path.join(model_dir, "labels.txt")
     id2label = {}
@@ -30,7 +35,10 @@ def load_labels(model_dir):
     return id2label
 
 
+# Determina qual o modelo a utilizar
+# (especificado manualmente ou último treino disponível)
 def resolve_model_dir(cli_model_dir: str = None):
+    # Caso o utilizador forneça explicitamente um modelo
     if cli_model_dir:
         if os.path.isdir(cli_model_dir):
             return cli_model_dir
@@ -40,7 +48,7 @@ def resolve_model_dir(cli_model_dir: str = None):
             return alternative
         raise SystemExit(f"❌ Erro: A diretoria do modelo especificada não existe: {cli_model_dir}")
 
-    # Tenta ler o ponteiro gerado pelo script de treino na pasta results/
+    # Tenta utilizar automaticamente o último modelo treinado
     if os.path.exists(LATEST_MODEL_FILE):
         with open(LATEST_MODEL_FILE, "r", encoding="utf-8") as f:
             candidate = f.read().strip().lstrip("\ufeff")
@@ -54,12 +62,12 @@ def resolve_model_dir(cli_model_dir: str = None):
         f"❌ Erro: Modelo não encontrado. Execute primeiro o treino ou especifique o caminho manualmente usando: model=CAMINHO"
     )
 
-
+# Carrega tokenizer e modelo treinado
 def predict_texts(texts, model_dir):
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     model = AutoModelForSequenceClassification.from_pretrained(model_dir)
     
-    # Detetar se o PC tem placa gráfica (GPU/CUDA) disponível
+    # Utiliza GPU caso esteja disponível
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
@@ -67,10 +75,11 @@ def predict_texts(texts, model_dir):
     id2label = load_labels(model_dir)
     all_preds = []
     
-    # Processamento em mini-lotes (Batching) para proteger a memória do computador
+    # Processamento em lotes para reduzir consumo de memória
     for i in tqdm(range(0, len(texts), BATCH_SIZE), desc="A classificar posts"):
         batch_texts = texts[i : i + BATCH_SIZE]
         
+        # Converte texto para o formato esperado pelo BERTimbau
         enc = tokenizer(
             batch_texts, 
             padding=True, 
@@ -84,6 +93,7 @@ def predict_texts(texts, model_dir):
         
         with torch.no_grad():
             logits = model(**enc).logits
+            # Obtém a classe mais provável para cada publicação
             preds = torch.argmax(logits, dim=-1).cpu().numpy()
             
         all_preds.extend([id2label[int(p)] for p in preds])
@@ -114,13 +124,13 @@ def main():
     model_dir = resolve_model_dir(kv.get("model"))
     print(f"🤖 A utilizar o modelo carregado de: {model_dir}")
 
-    # Modo 1: Classificação de texto direto no terminal
+    # Permite classificar uma frase diretamente no terminal
     if "text" in kv:
         preds = predict_texts([kv["text"]], model_dir)
         print(f"\n🏷️ Resultado da Classificação: {preds[0]}")
         return
 
-    # Modo 2: Classificação em lote via CSV
+    # Permite classificar milhares de publicações de uma só vez
     csv_path = kv.get("csv")
     out_path = kv.get("out", "results/bertimbau_predictions_output.csv")
     
@@ -135,6 +145,7 @@ def main():
     print(f"📊 A ler dados de: {csv_path}")
     df = pd.read_csv(csv_path, encoding="utf-8")
     
+    # Verifica se a coluna de texto existe
     if TEXT_COLUMN not in df.columns:
         print(f"❌ Erro: A coluna '{TEXT_COLUMN}' não foi encontrada no CSV fornecido.")
         sys.exit(1)
@@ -142,13 +153,14 @@ def main():
     df = df.dropna(subset=[TEXT_COLUMN]).copy()
     df[TEXT_COLUMN] = df[TEXT_COLUMN].astype(str)
     
-    # Filtrar posts que deram erro na fase de scraping
+    # Remove publicações com erros de scraping
     df = df[~df[TEXT_COLUMN].str.startswith("[ERRO")].copy() 
 
     texts = list(df[TEXT_COLUMN])
     print(f"🚀 A processar {len(texts)} linhas com o BERTimbau...")
     
     preds = predict_texts(texts, model_dir)
+    # Adiciona a previsão produzida pelo modelo
     df[LABEL_COLUMN] = preds
     
     # Garantir que a pasta de destino existe
@@ -156,6 +168,7 @@ def main():
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     
+    # Guarda o resultado final num novo CSV
     df.to_csv(out_path, index=False, encoding="utf-8")
     print(f"✨ Concluído! Resultados guardados com sucesso em: {out_path}")
 

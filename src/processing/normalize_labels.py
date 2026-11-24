@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
+# Dataset após extração dos textos dos posts
 DATASET = (
     ROOT_DIR
     / "data"
@@ -11,6 +12,7 @@ DATASET = (
     / "dataset_com_texto_extraido01.csv"
 )
 
+# Tabela de conversão das labels originais para a taxonomia final
 MAPPING_CSV = (
     ROOT_DIR
     / "data"
@@ -18,6 +20,7 @@ MAPPING_CSV = (
     / "label_mapping.csv"
 )
 
+# Dataset final utilizado nos treinos
 OUTPUT = (
     ROOT_DIR
     / "data"
@@ -46,18 +49,21 @@ CANONICAL_SET = {
     "Geral",
 }
 
-# Merge low-frequency canonical labels into broader ones
+# Algumas categorias pouco representadas são agregadas
+# em categorias mais abrangentes para melhorar o treino
 MERGE_MAP = {
     "Festividades e efemérides (incluindo Natal)": "Cultura",
     "Mobilidade, trânsito e estacionamento": "Obras municipais",
     "Participação cidadã (incluindo orçamento participativo)": "Presidente, Câmara e Assembleia",
 }
 
-
+# Remove acentos para permitir comparações mais robustas
 def strip_accents(text: str) -> str:
     return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
 
 
+# Lê o ficheiro de mapeamento e cria um dicionário
+# para converter labels originais em labels normalizadas
 def load_mapping(path: Path):
     df = pd.read_csv(path)
     mapping = {}
@@ -70,9 +76,9 @@ def load_mapping(path: Path):
         mapping.setdefault(f"__norm__::{key_norm}", canon)
     return mapping
 
-
+# Converte uma label para a taxonomia final
 def normalize_label(label: str, mapping: dict) -> str:
-    # direct mapping first
+    # Procura correspondência exata primeiro
     if label in mapping:
         result = mapping[label]
     else:
@@ -94,6 +100,7 @@ def main():
         raise SystemExit("Coluna 'new_sector' em falta no dataset.")
 
     mapping = load_mapping(MAPPING_CSV)
+    # Cria a coluna com as labels normalizadas
     df['new_sector_norm'] = df['new_sector'].astype(str).apply(lambda x: normalize_label(x, mapping))
 
     # Excluir entradas com label 'Geral' e avisar
@@ -102,12 +109,13 @@ def main():
     if removed > 0:
         pct = (removed / total_before) * 100.0 if total_before > 0 else 0.0
         print(f"Aviso: 'Geral' detectado em {removed} entradas ({pct:.2f}%). Essas entradas serão excluídas.")
+    # Remove exemplos sem categoria útil para treino
     df = df[df['new_sector_norm'] != 'Geral'].copy()
 
-    # Exportar dataset normalizado
+    # Guarda o dataset final que será utilizado pelos modelos
     df.to_csv(OUTPUT, index=False, encoding="utf-8")
 
-    # Guardar contagens pós-normalização
+    # Gera estatísticas da distribuição das classes
     counts = df['new_sector_norm'].value_counts().rename_axis('label').reset_index(name='count')
     counts.to_csv(COUNTS_OUT, index=False, encoding="utf-8")
 

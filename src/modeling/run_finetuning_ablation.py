@@ -5,6 +5,8 @@ import sys
 import os
 from pathlib import Path
 
+# Permite passar parâmetros personalizados
+# através da linha de comandos
 def parse_kv_args(argv):
     kv = {}
     for a in argv:
@@ -13,6 +15,8 @@ def parse_kv_args(argv):
             kv[k.strip().lower()] = v.strip()
     return kv
 
+# Obtém automaticamente a pasta mais recente
+# de uma determinada execução
 def latest_output_by_prefix(base_dir: Path, prefix: str) -> Path:
     matches = sorted(
         [p for p in base_dir.glob(f"{prefix}_*") if p.is_dir()],
@@ -23,12 +27,15 @@ def latest_output_by_prefix(base_dir: Path, prefix: str) -> Path:
         raise FileNotFoundError(f"Nenhuma pasta encontrada em {base_dir} com o prefixo: {prefix}")
     return matches[0]
 
+# Executa uma experiência de treino
+# (encoder congelado ou fine-tuning completo)
 def run_train(modeling_dir: Path, mode_name: str, freeze_encoder: bool, common_args: dict, out_prefix: str):
-    # Executa o treino apontando diretamente para o script da mesma pasta
+    # Reutiliza o script principal de treino
+    # com diferentes configurações
     cmd = [
         sys.executable,
         "train_bertimbau.py",
-        f"file=../../{common_args['file']}", # Caminho relativo para os datasets na pasta data/
+        f"file=../../{common_args['file']}", # Dataset utilizado na experiência
         f"label={common_args['label']}",
         f"epochs={common_args['epochs']}",
         f"bt={common_args['bt']}",
@@ -41,14 +48,19 @@ def run_train(modeling_dir: Path, mode_name: str, freeze_encoder: bool, common_a
         f"classweights={common_args['classweights']}",
         f"max={common_args['max']}",
         f"out=../../results/{out_prefix}", # Grava dentro de results/
+        # Define se o encoder BERTimbau fica congelado
+        # ou se todas as camadas podem ser ajustadas
         f"freeze_encoder={'true' if freeze_encoder else 'false'}",
     ]
 
     print(f"\n⚡ === A correr Ablação: {mode_name} ===")
+    # Executa o treino e espera pela sua conclusão
     subprocess.run(cmd, cwd=str(modeling_dir), check=True)
 
     results_dir = modeling_dir.parent.parent / "results"
     run_dir = latest_output_by_prefix(results_dir, out_prefix)
+    # Carrega automaticamente as métricas produzidas
+    # pela execução acabada de terminar
     metrics = json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
     setup = json.loads((run_dir / "training_setup.json").read_text(encoding="utf-8"))
 
@@ -66,9 +78,13 @@ def run_train(modeling_dir: Path, mode_name: str, freeze_encoder: bool, common_a
         "epoch": metrics.get("epoch"),
     }
 
+# Gera relatórios agregados da experiência de ablação
 def write_summary(results_dir: Path, rows, out_base: str):
+    # Guarda resultados em formato JSON
     json_path = results_dir / f"{out_base}_summary.json"
+    # Guarda resultados em formato CSV
     csv_path = results_dir / f"{out_base}_summary.csv"
+    # Cria relatório Markdown legível
     md_path = results_dir / f"{out_base}_summary.md"
 
     with open(json_path, "w", encoding="utf-8") as f:
@@ -84,10 +100,13 @@ def write_summary(results_dir: Path, rows, out_base: str):
     frozen = next(r for r in rows if r["mode"] == "frozen_head")
     finetune = next(r for r in rows if r["mode"] == "full_finetune")
 
+    # Calcula o ganho obtido pelo fine-tuning completo
+    # relativamente ao encoder congelado
     d_acc = (finetune["eval_accuracy"] or 0) - (frozen["eval_accuracy"] or 0)
     d_f1m = (finetune["eval_f1_macro"] or 0) - (frozen["eval_f1_macro"] or 0)
     d_f1w = (finetune["eval_f1_weighted"] or 0) - (frozen["eval_f1_weighted"] or 0)
 
+    # Geração automática do relatório final
     md = [
         "# Relatório de Ablação: Frozen vs Fine-tuning Completo",
         "",
@@ -118,6 +137,7 @@ def main():
     results_dir = modeling_dir.parent.parent / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
+    # Hiperparâmetros partilhados pelas duas experiências
     common_args = {
         "file": kv.get("file", "data/processed/dataset_labels_normalizado.csv"),
         "label": kv.get("label", "new_sector_norm"),
@@ -136,10 +156,12 @@ def main():
     out_base = kv.get("outbase", "bertimbau_ablation")
     rows = []
     
-    # Executa os dois modos consecutivos
+    # Treino apenas da camada de classificação
     rows.append(run_train(modeling_dir, "frozen_head", True, common_args, f"{out_base}_frozen"))
+    # Fine-tuning completo do modelo BERTimbau
     rows.append(run_train(modeling_dir, "full_finetune", False, common_args, f"{out_base}_finetune"))
 
+    # Consolida os resultados das duas experiências
     write_summary(results_dir, rows, out_base)
 
 if __name__ == "__main__":

@@ -6,9 +6,10 @@ import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
-# Inputs
+# Dataset com os textos extraídos dos novos posts
 TEXT_JSON = ROOT_DIR / "data" / "raw" / "dataset_new.json"
 
+# Dataset com as classificações realizadas pelos estudantes
 LABELS_CSV = (
     ROOT_DIR
     / "data"
@@ -16,7 +17,7 @@ LABELS_CSV = (
     / "DATA_classified_by_students_2026_update.csv"
 )
 
-# Outputs
+# Dataset completo após junção entre textos e classificações
 OUT_CSV = (
     ROOT_DIR
     / "data"
@@ -24,6 +25,7 @@ OUT_CSV = (
     / "dataset_new_merged_labeled.csv"
 )
 
+# Dataset apenas com publicações que possuem classificação válida
 OUT_LABELED_ONLY_CSV = (
     ROOT_DIR
     / "data"
@@ -31,6 +33,7 @@ OUT_LABELED_ONLY_CSV = (
     / "dataset_new_merged_labeled_only.csv"
 )
 
+# Relatórios de controlo de qualidade da junção
 OUT_QA_JSON = (
     ROOT_DIR
     / "results"
@@ -43,7 +46,8 @@ OUT_QA_TXT = (
     / "dataset_new_merge_qa.txt"
 )
 
-
+# Parâmetros de tracking removidos dos URLs
+# para permitir comparações consistentes
 TRACKING_PARAMS = {
     "ref",
     "__tn__",
@@ -57,7 +61,8 @@ TRACKING_PARAMS = {
     "utm_content",
 }
 
-
+# Normaliza URLs do Facebook para aumentar
+# a taxa de correspondência entre datasets
 def normalize_url(raw_url: str) -> str:
     if pd.isna(raw_url):
         return ""
@@ -88,6 +93,8 @@ def normalize_url(raw_url: str) -> str:
     return urlunsplit((scheme, netloc, path, query, ""))
 
 
+# Converte o ficheiro JSON de posts
+# para um DataFrame estruturado
 def load_text_df(path: Path) -> pd.DataFrame:
     data = json.loads(path.read_text(encoding="utf-8"))
     rows = []
@@ -118,7 +125,8 @@ def load_text_df(path: Path) -> pd.DataFrame:
 
     return pd.DataFrame(rows)
 
-
+# Tenta abrir o ficheiro de labels usando
+# diferentes codificações comuns
 def load_labels_df(path: Path) -> pd.DataFrame:
     # The labels file is semicolon-separated and commonly saved in cp1252/latin1.
     encodings = ["utf-8", "utf-8-sig", "cp1252", "latin1"]
@@ -130,7 +138,8 @@ def load_labels_df(path: Path) -> pd.DataFrame:
             last_err = exc
     raise RuntimeError(f"Could not read labels CSV: {last_err}")
 
-
+# Quando várias classificações apontam para o mesmo URL,
+# seleciona a categoria mais frequente
 def resolve_label_duplicates(labels_df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
     """Resolve repeated normalized URLs by picking the most frequent non-empty label."""
     resolved_rows = []
@@ -177,6 +186,7 @@ def main() -> None:
     text_df = text_df.copy()
     labels_df = labels_df.copy()
 
+    # Cria uma versão normalizada dos URLs para efetuar a correspondência
     text_df["url_norm"] = text_df["link"].map(normalize_url)
     labels_df["url_norm"] = labels_df["postLink"].map(normalize_url)
 
@@ -190,6 +200,7 @@ def main() -> None:
     # Keep first label per URL; preserve duplicates in QA report for manual review.
     labels_unique, duplicate_conflict_groups = resolve_label_duplicates(labels_df)
 
+    # Associa cada publicação à respetiva classificação
     merged = text_df.merge(
         labels_unique[["url_norm", "categoryId", "CategoryName", "postLink", "id"]],
         on="url_norm",
@@ -197,6 +208,7 @@ def main() -> None:
         suffixes=("", "_label"),
     )
 
+    # Indica se a publicação foi associada com sucesso a uma classificação
     merged["match_method"] = merged["id"].apply(lambda x: "url_normalized" if pd.notna(x) else "unmatched")
 
     # Reorder and keep only agreed output columns + traceability.
@@ -212,8 +224,10 @@ def main() -> None:
     ]
     merged_out = merged[out_cols].copy()
 
+    # Guarda o dataset completo
     merged_out.to_csv(OUT_CSV, index=False, encoding="utf-8")
     merged_labeled_only = merged_out[merged_out["match_method"] != "unmatched"].copy()
+    # Guarda apenas publicações com classificação atribuída
     merged_labeled_only.to_csv(OUT_LABELED_ONLY_CSV, index=False, encoding="utf-8")
 
     total = len(merged_out)
@@ -222,6 +236,7 @@ def main() -> None:
     empty_label = int(merged_out["CategoryName"].isna().sum())
     outro_count = int((merged_out["CategoryName".lower() if False else "CategoryName"].astype(str) == "Outro").sum())
 
+    # Estatísticas de qualidade para validação da junção
     qa = {
         "files": {
             "text_json": str(TEXT_JSON),
@@ -255,6 +270,7 @@ def main() -> None:
 
     OUT_QA_JSON.write_text(json.dumps(qa, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    # Guarda um resumo textual dos resultados da junção
     summary_lines = [
         "Merge QA Summary",
         f"Text rows: {len(text_df)}",
